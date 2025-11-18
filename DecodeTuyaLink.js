@@ -26,8 +26,8 @@ function tuyaCRC8(bytes) {
 function getHeaderData(encodedData) {
     // the marker is a number represented as the higher 4 bits
     // the actual data is represented as the lower 4 bits
-    const highLengthHeaderByte = encodedData[0]; // its: marker: 16
-    const lowLengthHeaderByte = encodedData[1]; // its marker: 32
+    const highBodyDataLengthByte = encodedData[0]; // its: marker: 16
+    const lowBodyDataLengthByte = encodedData[1]; // its marker: 32
     const highCRCHeaderByte = encodedData[2]; // its marker: 48
     const lowCRCHeaderByte = encodedData[3]; // its marker: 64
 
@@ -35,10 +35,10 @@ function getHeaderData(encodedData) {
     const HIGH_MASK = 0xF0;
     try {
         // check if markers are correct
-        console.assert((highLengthHeaderByte & HIGH_MASK) === 0x10, "Header Marker (16) not found")
-        console.assert((lowLengthHeaderByte & HIGH_MASK) === 0x20, "Header Marker (32) not found")
-        console.assert((highCRCHeaderByte & HIGH_MASK) === 0x30, "Header Marker (48) not found")
-        console.assert((lowCRCHeaderByte & HIGH_MASK) === 0x40, "Header Marker (64) not found")
+        console.assert((highBodyDataLengthByte & HIGH_MASK) === 16, "Header Marker (16) not found")
+        console.assert((lowBodyDataLengthByte & HIGH_MASK) === 32, "Header Marker (32) not found")
+        console.assert((highCRCHeaderByte & HIGH_MASK) === 48, "Header Marker (48) not found")
+        console.assert((lowCRCHeaderByte & HIGH_MASK) === 64, "Header Marker (64) not found")
     } catch (error) {
         console.error("Marker for Header (Length and CRC) incorrect: " + error);
         return false;
@@ -47,21 +47,20 @@ function getHeaderData(encodedData) {
     const LOW_MASK = 0x0F;
 
     // strip the markers
-    const highLengthHeader = highLengthHeaderByte & LOW_MASK;
-    const lowLengthHeader = lowLengthHeaderByte & LOW_MASK;
+    const highBodyDataLength = highBodyDataLengthByte & LOW_MASK;
+    const lowBodyDataLength = lowBodyDataLengthByte & LOW_MASK;
     const highCRCHeader = highCRCHeaderByte & LOW_MASK;
     const lowCRCHeader = lowCRCHeaderByte & LOW_MASK;
 
-    const lengthHeader = highLengthHeader * 16 + lowLengthHeader;
+    const bodyDataLength = highBodyDataLength * 16 + lowBodyDataLength;
     const crcHeader = highCRCHeader * 16 + lowCRCHeader;
 
     // TODO() verify integrity of length via CRC
-    return [lengthHeader, crcHeader];
+    return [bodyDataLength, crcHeader];
 }
 
 // decode and print following structure:
 // [Pass_Len][Pass_Data][RTS_Len][RTS_Data][SSID_Data]
-// TODO() split RTS
 function decodeRawByteArray(rawByteArray) {
     // find wifi password using length
     const passLength = rawByteArray[0];
@@ -87,7 +86,7 @@ function decodeRawByteArray(rawByteArray) {
     console.log("Decoded Token:", token);
     console.log("Decoded Secret:", secret);
 
-    // find wifi ssid using everything left
+    // find wifi ssid using everything thats left
     indexOffset = indexOffset + rtsLength + 1;
     let wifiSSID = "";
     for (let i = indexOffset; i < rawByteArray.length; i++) {
@@ -100,14 +99,14 @@ function decodeRawByteArray(rawByteArray) {
 
 // [CRC from next 5 bits | index bit | rawByteArray | rawByteArray | rawByteArray | rawByteArray]
 // CRC consists of the index and 4 data bytes
-function extractRawByteArray(encodedData, headerLength) {
+function extractRawByteArray(encodedData, bodyDataLength) {
     // strip Headers
     let encodedDataBody = encodedData.slice(4)
 
     // calculate end of sequence
     // divide by 4 since there are 4 data bytes per index increment
     // multiply by 6 since there are 6 bytes per body row: CRC, index, 4 data bytes
-    const lastByteIndex = Math.ceil(headerLength / 4) * 6
+    const lastByteIndex = Math.ceil(bodyDataLength / 4) * 6
 
     const extractedRawByteArray = []
     // the index is a number starting from 0 and getting incremented by 1 for each body "section"
@@ -121,7 +120,7 @@ function extractRawByteArray(encodedData, headerLength) {
         console.assert((encodedDataBody[i + 3] & HIGH_MASK) === 256, "Body Marker (256) for Data-2 found: ", encodedDataBody[i + 3] & HIGH_MASK)
         console.assert((encodedDataBody[i + 4] & HIGH_MASK) === 256, "Body Marker (256) for Data-3 found: ", encodedDataBody[i + 4] & HIGH_MASK)
         console.assert((encodedDataBody[i + 5] & HIGH_MASK) === 256, "Body Marker (256) for Data-4 found: ", encodedDataBody[i + 5] & HIGH_MASK)
-
+        // strip markers
         const index = encodedDataBody[i + 1] - 128;
         const data1 = encodedDataBody[i + 2] - 256;
         const data2 = encodedDataBody[i + 3] - 256;
@@ -135,14 +134,14 @@ function extractRawByteArray(encodedData, headerLength) {
         // verify index
         console.assert(index === expectedSequenceCounter, `Index check failed: found ${index}, expected: ${expectedSequenceCounter}`);
         expectedSequenceCounter++
-        extractedRawByteArray.push(data1, data2 , data3 , data4 );
+        extractedRawByteArray.push(data1, data2 , data3 , data4);
     }
     return extractedRawByteArray;
 }
 
 export function getWifiData(encodedData) {
-    const [headerLength, headerCRC] = getHeaderData(encodedData)
-    const extractedRawByteArray = extractRawByteArray(encodedData, headerLength);
+    const [bodyDataLength, headerCRC] = getHeaderData(encodedData)
+    const extractedRawByteArray = extractRawByteArray(encodedData, bodyDataLength);
     decodeRawByteArray(extractedRawByteArray);
 }
 
@@ -177,5 +176,5 @@ function parsePackets() {
     getWifiData(rawByteArray);
 
 }
-
+// https://rxjs.dev/ for processing streams
 parsePackets()
