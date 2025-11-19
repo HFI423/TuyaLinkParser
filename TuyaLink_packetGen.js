@@ -60,8 +60,8 @@ class TuyaLinkEncoder {
     console.log("Wifi Pass: " + options.wifiPassword)
     console.log("Wifi SSID: " + options.ssid)
     console.log("Region: " + options.region)
-    console.log("Wifi Token: " + options.token)
-    console.log("Wifi Secret: " + options.secret + "\n")
+    console.log("Token: " + options.token)
+    console.log("Secret: " + options.secret + "\n")
     // Buffer = ByteArray
     const wifiPasswordBytes = Buffer.from(options.wifiPassword);
     const regionTokenSecretBytes = Buffer.from(
@@ -133,7 +133,7 @@ class TuyaLinkEncoder {
     // if rawByteArray doesn't have 4 Bit left, use 0 instead
     // 0,8,97,97,97 | 1,97,99,99,99 | 2,99,14,69,85 | ... | 6,97,97,0,0
     for (let x = 0; x < rawDataLengthRoundedUp; x += 4) {
-      console.log("-------------- Index: " + x + " --------------");
+      console.log("-------------- Index: " + sequenceCounter + " --------------");
       // Build CRC buffer, using data from rawByteArray or 0 values if too long
       const crcData = [];
       crcData[0] = sequenceCounter++;
@@ -171,22 +171,14 @@ const encoder = new TuyaLinkEncoder();
 
 const options = {
   region: 'EU',
-  token: '00000000',
-  secret: '0101',
-  ssid: 'aaaa',
-  wifiPassword: 'aaaacccc'
-};
-
-const options2 = {
-  region: 'EU',
-  token: '00000000',
-  secret: '0101',
+  token: 'cYo8nJkf',
+  secret: '6rNx',
   ssid: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   wifiPassword: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaPass'
 };
 
 try {
-  const encodedData = encoder.smartLinkEncode(options2);
+  const encodedData = encoder.smartLinkEncode(options);
   console.log("Encoded Data length: ", encodedData.length);
   getWifiData(encodedData);
 
